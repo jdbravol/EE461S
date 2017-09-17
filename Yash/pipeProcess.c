@@ -39,7 +39,6 @@ void pipeProcess(char** arg1, char** arg2) {
 		  	close(pipefd[1]);
 		  	int count = 0;
 			while (count < 2) {
-			// Parent's wait processing is based on the sig_ex4.c
 				pid = waitpid(-1, &status, WUNTRACED | WCONTINUED);
 				if (pid == -1) {
 					return;

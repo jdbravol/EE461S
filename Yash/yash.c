@@ -8,6 +8,7 @@
 #include <sys/wait.h>
 #include "pipeProcess.h"
 #include "singleProcess.h"
+#include "redirectionProcess.h"
 
 typedef enum { false, true} bool;
 
@@ -50,36 +51,74 @@ int main(int argc, char** argv){
         // will only do a file redirection
         else if (redirection[0] < piping){
 			int index = redirection[0];
+			int end = (int) inputLength;
+			int start = 0;
 			char * file; 
-			char ** program;
-			// run first file redirection 
+			char ** arguments;
+			// run first file redirection
+			if (redirection[1] != INT_MAX){
+				end = redirection[1];
+			} 
 			if (input[index] == '>'){
 				if (input[index+1] == '>'){
 					// STDERROR
+				} else{
+					file = getProgram(input, index, end);
+					char* program = getProgram(input, start, index);
+					arguments = organizeArguments(program);
+					redirectToFile(arguments, file);
 				}
-
 			} else if (input[index] == '<'){
-
+				file = getProgram(input, start, index);
+				char* program = getProgram(input, index, end);
+				arguments = organizeArguments(program);
 			}
 
 			//run second file redirection
-			if (input[index] == '>'){
-				if (input[index+1] == '>'){
-					// STDERROR
+			if (redirection[1] != INT_MAX){
+				index = redirection[1];
+				start = redirection[0];
+				if (redirection[2] != INT_MAX){
+					end = redirection[2];
 				}
+				if (input[index] == '>'){
+					if (input[index+1] == '>'){
+						// STDERROR
+					}
+					else{
+						file = getProgram(input, index, end);
+						char* program = getProgram(input, start, index);
+						arguments = organizeArguments(program);
+						redirectToFile(arguments, file);
+					}
 
-			} else if (input[index] == '<'){
-
+				} else if (input[index] == '<'){
+					file = getProgram(input, start, index);
+					char* program = getProgram(input, index, end);
+					arguments = organizeArguments(program);
+				}
 			}
 
 			//run third file redirection
-			if (input[index] == '>'){
-				if (input[index+1] == '>'){
-					// STDERROR
+			if (redirection[2] != INT_MAX){
+				index = redirection[2];
+				start = redirection[1];
+				if (input[index] == '>'){
+					if (input[index+1] == '>'){
+						// STDERROR
+					}
+					else{
+						file = getProgram(input, index, end);
+						char* program = getProgram(input, start, index);
+						arguments = organizeArguments(program);
+						redirectToFile(arguments, file);
+					}
+
+				} else if (input[index] == '<'){
+					file = getProgram(input, start, index);
+					char* program = getProgram(input, index, end);
+					arguments = organizeArguments(program);
 				}
-
-			} else if (input[index] == '<'){
-
 			}
 		}
 		// do both file piping first and then redirection
