@@ -53,8 +53,9 @@ int main(int argc, char** argv){
 			int index = redirection[0];
 			int end = (int) inputLength;
 			int start = 0;
-			char * file; 
-			char ** arguments;
+			char* file; 
+			char** arguments;
+			char* program;
 			// run first file redirection
 			if (redirection[1] != INT_MAX){
 				end = redirection[1];
@@ -62,16 +63,23 @@ int main(int argc, char** argv){
 			if (input[index] == '>'){
 				if (input[index+1] == '>'){
 					// STDERROR
+					file = getProgram(input, index + 1, end);
+					program = getProgram(input, start, index);
+					arguments = organizeArguments(program);
+					redirectError(arguments, file);
 				} else{
-					file = getProgram(input, index, end);
-					char* program = getProgram(input, start, index);
+					//Redirect Out
+					file = getProgram(input, index + 1, end);
+					program = getProgram(input, start, index);
 					arguments = organizeArguments(program);
 					redirectToFile(arguments, file);
 				}
 			} else if (input[index] == '<'){
-				file = getProgram(input, start, index);
-				char* program = getProgram(input, index, end);
+				//Redirect In
+				program = getProgram(input, start, index);
+				file = getProgram(input, index + 1, end);
 				arguments = organizeArguments(program);
+				redirectToProcess(arguments,file);
 			}
 
 			//run second file redirection
@@ -84,18 +92,23 @@ int main(int argc, char** argv){
 				if (input[index] == '>'){
 					if (input[index+1] == '>'){
 						// STDERROR
+						file = getProgram(input, index + 1, end);
+						program = getProgram(input, start, index);
+						arguments = organizeArguments(program);
+						redirectError(arguments, file);
 					}
 					else{
-						file = getProgram(input, index, end);
-						char* program = getProgram(input, start, index);
+						file = getProgram(input, index + 1, end);
+						program = getProgram(input, start, index);
 						arguments = organizeArguments(program);
 						redirectToFile(arguments, file);
 					}
 
 				} else if (input[index] == '<'){
-					file = getProgram(input, start, index);
-					char* program = getProgram(input, index, end);
+					program = getProgram(input, start, index);
+					file = getProgram(input, index + 1, end);
 					arguments = organizeArguments(program);
+					redirectToProcess(arguments,file);					
 				}
 			}
 
@@ -106,24 +119,38 @@ int main(int argc, char** argv){
 				if (input[index] == '>'){
 					if (input[index+1] == '>'){
 						// STDERROR
+						file = getProgram(input, index + 1, end);
+						program = getProgram(input, start, index);
+						arguments = organizeArguments(program);
+						redirectError(arguments, file);
 					}
 					else{
-						file = getProgram(input, index, end);
-						char* program = getProgram(input, start, index);
+						file = getProgram(input, index + 1, end);
+						program = getProgram(input, start, index);
 						arguments = organizeArguments(program);
 						redirectToFile(arguments, file);
 					}
 
 				} else if (input[index] == '<'){
-					file = getProgram(input, start, index);
-					char* program = getProgram(input, index, end);
+					program = getProgram(input, start, index);
+					file = getProgram(input, index + 1, end);
 					arguments = organizeArguments(program);
+					redirectToProcess(arguments,file);					
 				}
 			}
+			freeArgs(arguments);
+			free(file);
 		}
 		// do both file piping first and then redirection
 		else if (piping < redirection[0] && redirection[0] != INT_MAX) {
-
+			//Do piping first
+			char* program1 = getProgram(input, 0, piping);
+			char* program2 = getProgram(input, piping+1, redirection[0]);
+			char* file = getProgram(input, redirection[0] + 1, (int) inputLength);
+			char** argument1 = organizeArguments(program1);
+            char** argument2 = organizeArguments(program2);
+			pipeRedirection(argument1, argument2, file);
+			//Do redirection
 		}
         //piping only
 		else if (piping != INT_MAX){
@@ -132,15 +159,16 @@ int main(int argc, char** argv){
             //arguments
             char** argument1 = organizeArguments(program1);
             char** argument2 = organizeArguments(program2);
-            pipeProcess(argument1, argument2);
-            free(program1);
-        	free(program2);
+			pipeProcess(argument1, argument2);
+			
+            freeArgs(argument1);
+        	freeArgs(argument2);
         }
 		//only one process
 		else{
 			char** argument = organizeArguments(input);
 			singleProcess(argument);
-			freeArgs(argument);
+			free(argument);
 		}
 	}
 }
@@ -229,8 +257,6 @@ char** organizeArguments(char* wholeLine){
 }
 
 void freeArgs(char** myArgs){
-    for(int x = 0; x < strlen((const char *) myArgs); x++){
-        free(myArgs[x]);
-    }
+	free(myArgs[0]);
     free(myArgs);
 }
