@@ -3,7 +3,7 @@ all: build
 
 build:
 
-	gcc -o yash *.c
+	gcc -g -o yash *.c
 
 clean:
 	rm -rf *.o yash

@@ -19,6 +19,8 @@ char* getProgram(char[], int, int);
 char** organizeArguments(char* );
 void freeArgs(char**);
 
+//variable to determine number of tokens
+int tokens = 0;
 //Variables to determine where process are
 int redirection[3] = {INT_MAX, INT_MAX, INT_MAX};
 int piping = INT_MAX;
@@ -50,107 +52,99 @@ int main(int argc, char** argv){
         }
         // will only do a file redirection
         else if (redirection[0] < piping){
-			int index = redirection[0];
-			int end = (int) inputLength;
-			int start = 0;
-			char* file; 
-			char** arguments;
-			char* program;
-			// run first file redirection
-			if (redirection[1] != INT_MAX){
-				end = redirection[1];
-			} 
-			if (input[index] == '>'){
-				if (input[index+1] == '>'){
-					// STDERROR
-					file = getProgram(input, index + 1, end);
-					program = getProgram(input, start, index);
-					arguments = organizeArguments(program);
-					redirectError(arguments, file);
-				} else{
-					//Redirect Out
-					file = getProgram(input, index + 1, end);
-					program = getProgram(input, start, index);
-					arguments = organizeArguments(program);
-					redirectToFile(arguments, file);
-				}
-			} else if (input[index] == '<'){
-				//Redirect In
-				program = getProgram(input, start, index);
-				file = getProgram(input, index + 1, end);
-				arguments = organizeArguments(program);
-				redirectToProcess(arguments,file);
-			}
-
-			//run second file redirection
-			if (redirection[1] != INT_MAX){
-				index = redirection[1];
-				start = redirection[0];
-				if (redirection[2] != INT_MAX){
-					end = redirection[2];
-				}
-				if (input[index] == '>'){
-					if (input[index+1] == '>'){
-						// STDERROR
-						file = getProgram(input, index + 1, end);
-						program = getProgram(input, start, index);
+			int in = 0 , out = 0, err = 0;
+			int index;
+			int start = 0;			
+			int end = (int) inputLength - 1;
+			char* fileTo = NULL;
+			char* fileFrom = NULL;
+			char* fileErr = NULL; 
+			char** arguments = NULL;
+			//check for entire command
+			for(int x = 0; x < 3; x++){
+				if(redirection[x] != INT_MAX && redirection[x] < piping){
+					index = redirection[x];
+					//change end
+					end = (int) inputLength - 1;
+					if (redirection[x+1] != INT_MAX){end = redirection[x+1] - 1; }
+					if(input[index] == '<'){
+						//program is first argument
+						char* program = getProgram(input, start, index);
 						arguments = organizeArguments(program);
-						redirectError(arguments, file);
+						//file is a secong argument
+						fileFrom = getProgram(input, index + 1, end);
+						//flag on
+						out = 1;
 					}
-					else{
-						file = getProgram(input, index + 1, end);
-						program = getProgram(input, start, index);
+					else if (input[index] == '>'){
+						//program is first
+						char* program = getProgram(input, start, index);
 						arguments = organizeArguments(program);
-						redirectToFile(arguments, file);
+						//file is second
+						fileTo = getProgram(input, index + 1, end);
+						//flag on
+						in = 1;					
 					}
-
-				} else if (input[index] == '<'){
-					program = getProgram(input, start, index);
-					file = getProgram(input, index + 1, end);
-					arguments = organizeArguments(program);
-					redirectToProcess(arguments,file);					
+					else if (input[index] == '2' && input[index+1] == '>'){
+						//program is first if only 1 redirection
+						if (x == 0){
+							char* program = getProgram(input, start, index);
+							arguments = organizeArguments(program);
+						}
+						fileErr = getProgram(input, index + 2, end);
+						err = 1;
+					}
 				}
 			}
 
-			//run third file redirection
-			if (redirection[2] != INT_MAX){
-				index = redirection[2];
-				start = redirection[1];
-				if (input[index] == '>'){
-					if (input[index+1] == '>'){
-						// STDERROR
-						file = getProgram(input, index + 1, end);
-						program = getProgram(input, start, index);
-						arguments = organizeArguments(program);
-						redirectError(arguments, file);
-					}
-					else{
-						file = getProgram(input, index + 1, end);
-						program = getProgram(input, start, index);
-						arguments = organizeArguments(program);
-						redirectToFile(arguments, file);
-					}
+			//Redirect after grabing whole code
+			redirect( arguments, fileTo, fileFrom, fileErr, in, out, err);
 
-				} else if (input[index] == '<'){
-					program = getProgram(input, start, index);
-					file = getProgram(input, index + 1, end);
-					arguments = organizeArguments(program);
-					redirectToProcess(arguments,file);					
-				}
-			}
+			//free heap
 			freeArgs(arguments);
-			free(file);
+			if (in){free(fileTo);}
+			if (out){free(fileFrom);}
+			if (err){free(fileErr);}
+
 		}
 		// do both file piping first and then redirection
 		else if (piping < redirection[0] && redirection[0] != INT_MAX) {
-			//Do piping first
+			//get piping programs
 			char* program1 = getProgram(input, 0, piping);
 			char* program2 = getProgram(input, piping+1, redirection[0]);
-			char* file = getProgram(input, redirection[0] + 1, (int) inputLength);
 			char** argument1 = organizeArguments(program1);
-            char** argument2 = organizeArguments(program2);
-			pipeRedirection(argument1, argument2, file);
-			//Do redirection
+			char** argument2 = organizeArguments(program2);
+			//variables for file redirection
+			int in =0, out = 0, err = 0, end, index;
+			char* fileTo = NULL;
+			char* fileFrom = NULL;
+			char* fileErr = NULL;
+			//Redirection to File
+			for(int x = 0; x < 3; x++){
+				if(redirection[x] != INT_MAX){
+					index = redirection[x];
+					end = (int) inputLength - 1;
+					if (redirection[x+1] != INT_MAX){end = redirection[x+1] - 1; }
+					if(input[index] == '<'){
+						//file is a secong argument
+						fileFrom = getProgram(input, index + 1, end);
+						//flag on
+						out = 1;
+					}
+					else if (input[index] == '>'){
+						//file is second
+						fileTo = getProgram(input, index + 1, end);
+						//flag on
+						in = 1;					
+					}
+					else if (input[index] == '2' && input[index+1] == '>'){
+						//program is first if only 1 redirection
+						fileErr = getProgram(input, index + 2, end);
+						err = 1;
+					}
+				}
+			}
+			pipeRedirection(argument1, argument2, fileFrom, fileTo, fileErr, in, out, err);
 		}
         //piping only
 		else if (piping != INT_MAX){
@@ -182,8 +176,21 @@ void restartVariables(void){
 
 void scanInput(char arguments[], size_t size){
 	for(int i = 0; i < size; i++){
-        //search for redirection
-		if (arguments[i] == '>' || arguments[i] == '<'){
+		//search for 2> redirection
+		if (arguments[i] == '2' && arguments[i+1] == '>'){
+			if(redirection[0] == INT_MAX){
+				redirection[0]=i;
+			}else if (redirection[1] == INT_MAX){
+				redirection[1]=i;
+			}else{
+				redirection[2]=i;
+			}
+			//make sure to skip one character
+			i++;
+		}
+		//search for single redirections
+		else if (arguments[i] == '>' || arguments[i] == '<'){
+			tokens ++;
 			if(redirection[0] == INT_MAX){
 				redirection[0]=i;
 			}else if (redirection[1] == INT_MAX){
@@ -194,6 +201,7 @@ void scanInput(char arguments[], size_t size){
 		}
         //search for pipe
         else if(arguments[i] == '|'){
+			tokens ++;
 			piping = i;
 		}
         //search for job control

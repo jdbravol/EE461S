@@ -9,7 +9,7 @@
 #include <sys/wait.h>
 
 int pipefd[2];
-int status, pid_ch1, pid_ch2, pid, out;
+int status, pid_ch1, pid_ch2, pid, out, in, err;
 
 static void sig_int(int signo) {
     printf("Sending signals to group:%d\n",pid_ch1); // group id is pid of first in pipeline
@@ -78,7 +78,9 @@ void pipeProcess(char** arg1, char** arg2) {
 	}
 }
 
-void pipeRedirection(char** arg1, char** arg2, char* file){
+void pipeRedirection(char** arg1, char** arg2, 
+	char* fileFrom, char* fileTo, char* fileErr, int to, int from, int error){
+	
 	char ch[1]={0};
 	
   	if (pipe(pipefd) == -1) {
@@ -88,10 +90,22 @@ void pipeRedirection(char** arg1, char** arg2, char* file){
   	//create child
   	pid_ch1 = fork();
 
-  	//open file
-  	if((out = open(file, O_TRUNC | O_CREAT | O_WRONLY, 0666)) < 0){
-		//send error
-	}
+	//open files
+	if(to){
+        if((out = open(fileTo, O_TRUNC | O_CREAT | O_WRONLY, 0666)) < 0){
+        //Send Error
+        }
+    }
+    if(from){
+        if((in = open(fileFrom, O_RDONLY)) < 0){
+            //send error
+        }
+    }
+    if(error){
+        if((err = open(fileErr, O_TRUNC | O_CREAT | O_WRONLY, 0666)) < 0){
+            //send error
+        }
+    }
 
 	if (pid_ch1 > 0){
 	  // Parent
@@ -129,8 +143,11 @@ void pipeRedirection(char** arg1, char** arg2, char* file){
 			sleep(1);
 			setpgid(0,pid_ch1); //child2 joins the group whose group id is same as child1's pid
 		   	close(pipefd[1]); // close the write end
-			dup2(pipefd[0],STDIN_FILENO);
-			dup2(out,STDOUT_FILENO);
+			if(from){dup2(in,STDIN_FILENO);}
+			else {dup2(pipefd[0],STDIN_FILENO);}
+			if(to){dup2(out,STDOUT_FILENO);}
+			else{dup2(out,STDOUT_FILENO);}
+			if(error){dup2(err,STDERR_FILENO);}
 			execvp(arg2[0], arg2);  // runs word count
 	  	}
   	} else {
